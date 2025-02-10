@@ -12,6 +12,7 @@ SDLF supports both a centralized datalake deployment pattern and decentralized d
 ## Data Mesh
 
 The Data Mesh pattern is fundamentally about decentralized data ownership, with data owned by specialized domain teams rather than a centralized data team. This usually means:
+
 - each data domain team has its own dedicated data infrastructure, for production and/or consumption
 - each data domain team is able to deploy the tools and infrastructure it needs - a self-serve data platform
 
