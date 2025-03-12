@@ -160,7 +160,7 @@ Resources:
   rPipelineInterface:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: "resolve:ssm:/sdlf/pipeline/main"
+      TemplateURL: "{{resolve:ssm:/sdlf/pipeline/main}}"
       Parameters:
         pPipelineReference: !Ref pPipelineReference
         pDeploymentInstance: !Ref pDeploymentInstance

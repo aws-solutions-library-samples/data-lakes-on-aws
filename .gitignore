@@ -157,7 +157,3 @@ cython_debug/
 # cdk
 cdk.out
 cdk.context.json
-
-# AWS CodeSeeder/SeedFarmer
-codeseeder.out/
-seedfarmer.gitmodules/
