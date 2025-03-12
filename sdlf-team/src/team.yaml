@@ -11,7 +11,7 @@ Parameters:
     Description: The string uniquely identifying a sdlf-foundations deployment in this AWS account
     Default: "" # see below comments
   pAthenaBucket:
-    Description: Athena bucket "{{resolve:ssm:/sdlf/storage/rAthenaBucket/dev}}"
+    Description: Athena bucket
     Type: String
     Default: "" # if not provided, pStorageDeploymentInstance must be specified
 #  pSNSNotificationsEmail:

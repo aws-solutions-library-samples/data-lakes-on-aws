@@ -143,41 +143,6 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix} # TODO maybe get target account
-              - Effect: Allow
-                Action:
-                  - iam:AttachRolePolicy
-                  - iam:CreateRole
-                  - iam:DeleteRole
-                  - iam:DeleteRolePolicy
-                  - iam:DetachRolePolicy
-                  - iam:GetRole
-                  - iam:GetRolePolicy
-                  - iam:ListRolePolicies
-                  - iam:PutRolePolicy
-                  - iam:TagRole
-                  - iam:UntagRole
-                  - iam:UpdateRole
-                  - iam:UpdateAssumeRolePolicy
-                  - iam:UpdateRoleDescription
-                Resource:
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/seedfarmer-sdlf-toolchain-role
-                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/seedfarmer-sdlf-deployment-role
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateChangeSet
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteChangeSet
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeChangeSet
-                  - cloudformation:DescribeStacks
-                  - cloudformation:ExecuteChangeSet
-                  - cloudformation:SetStackPolicy
-                  - cloudformation:UpdateStack
-                Resource:
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/seedfarmer-sdlf-toolchain-role
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/seedfarmer-sdlf-toolchain-role/*
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/seedfarmer-sdlf-deployment-role
-                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/seedfarmer-sdlf-deployment-role/*
 
   rSdlfBootstrapCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -192,13 +157,25 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
+          - Name: AWS_PARTITION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Partition
+          - Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref rArtifactsBucket
+          - Name: CODEBUILD_TARGET_ACCOUNT_ROLE
+            Type: PLAINTEXT
+            Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
           - Name: TARGET_ACCOUNT
             Type: PLAINTEXT
-            Value: "111111111111"
+            Value: "111111111111" # TODO
+          - Name: SDLF_CONSTRUCT
+            Type: PLAINTEXT
+            Value: sdlf-foundations
       ServiceRole: !GetAtt rSdlfBootstrapCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
-        BuildSpec: !Sub |
+        BuildSpec: |
           version: 0.2
           phases:
             install:
@@ -219,36 +196,21 @@ Resources:
                   python3 -m venv .venv
                   source .venv/bin/activate
                   pip3 install --upgrade pip setuptools
-                  pip3 install "seed-farmer~=5.0.2"
-                - |-
-                  echo "project: sdlf" > seedfarmer.yaml
-                  seedfarmer version
                 - |-
                   STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                  if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
+                  if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$CODEBUILD_TARGET_ACCOUNT_ROLE" --role-session-name "codebuild-bootstrap")
                   then
                     AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
                     AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
                     AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
                     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
                   else
-                    echo "Unable to assume role sdlf-cicd-codebuild-bootstrap in target account $TARGET_ACCOUNT"
+                    echo "Unable to assume role $CODEBUILD_TARGET_ACCOUNT_ROLE in target account $TARGET_ACCOUNT"
                     exit 1
                   fi
 
-                  export PROJECT=sdlf
-                  export USER_ARN=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev)
-
-                  seedfarmer bootstrap toolchain \
-                  --project "$PROJECT" \
-                  --trusted-principal "$USER_ARN" \
-                  --region "$AWS_REGION" \
-                  --as-target
-                - |-
-                  cp sdlf-cicd/manifest-*.yaml .
-                  AWS_ACCOUNT_ID=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query "Account" --output text)
-                  sed -i -e "s/111111111111/$AWS_ACCOUNT_ID/g" -e "s/eu-west-1/$AWS_REGION/g" manifest-sdlf.yaml
-                  seedfarmer apply manifest-sdlf.yaml
+                  cd "$SDLF_CONSTRUCT" || exit 1
+                  bash buildspec.sh
           artifacts:
             files:
               - "*"
@@ -301,7 +263,7 @@ Resources:
                   - !GetAtt rKMSKey.Arn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-bootstrap
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix} # TODO maybe get target account
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -331,6 +293,18 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
+          - Name: AWS_PARTITION
+            Type: PLAINTEXT
+            Value: !Ref AWS::Partition
+          - Name: CODEBUILD_TARGET_ACCOUNT_ROLE
+            Type: PLAINTEXT
+            Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
+          - Name: DEPLOYMENT_TYPE
+            Type: PLAINTEXT
+            Value: cfn-template
+          - Name: SDLF_CONSTRUCT
+            Type: PLAINTEXT
+            Value: sdlf-foundations
           - Name: TARGET_ACCOUNT
             Type: PLAINTEXT
             Value: "111111111111"
@@ -343,7 +317,7 @@ Resources:
       ServiceRole: !GetAtt rDatalakeCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
-        BuildSpec: !Sub |
+        BuildSpec: |
           version: 0.2
           phases:
             install:
@@ -361,15 +335,44 @@ Resources:
                     git clone --single-branch --branch main https://github.com/awslabs/aws-serverless-data-lake-framework.git
                     cd aws-serverless-data-lake-framework/sdlf-utils/workshop-examples/10-demo/sdlf-workshop/
                 - |-
+                    declare -a SDLF_CONSTRUCTS=("sdlf-foundations" "sdlf-dataset" "sdlf-pipeline" "sdlf-datalakeLibrary" "sdlf-stage-lambda" "sdlf-stage-glue" "sdlf-team")
+                    CODEBUILD_ENDPOINT_URL="https://codebuild.$AWS_REGION.amazonaws.com"
+                    build_ids=()
+                    for SDLF_CONSTRUCT in "${SDLF_CONSTRUCTS[@]}"
+                    do
+                      build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
+                          --project-name sdlf-cicd-bootstrap \
+                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCT,value="$SDLF_CONSTRUCT" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --query "build.id" --output text)
+                      echo "Building $SDLF_CONSTRUCT: $build_id"
+                      build_ids+=("$build_id")
+                    done
+
+                    echo "Waiting for all bootstrap builds to complete..."
+                    for build_id in "${build_ids[@]}"
+                    do
+                      build_status="IN_PROGRESS"
+                      while [ "$build_status" == "IN_PROGRESS" ]
+                      do
+                        build_status=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" batch-get-builds --ids "$build_id" --query "builds[0].buildStatus" --output text)
+                        sleep 20
+                      done
+                      if [ "$build_status" != "SUCCEEDED" ]
+                      then
+                        echo "At least one bootstrap build failed: id $build_id"
+                        exit 1
+                      fi
+                    done
+
                     STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                    if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:${AWS::Partition}:iam::$TARGET_ACCOUNT:role/sdlf-cicd-codebuild-bootstrap" --role-session-name "codebuild-bootstrap")
+                    if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$CODEBUILD_TARGET_ACCOUNT_ROLE" --role-session-name "codebuild-bootstrap")
                     then
                       AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
                       AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
                       AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
                       export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
                     else
-                      echo "Unable to assume role sdlf-cicd-codebuild-bootstrap in target account $TARGET_ACCOUNT"
+                      echo "Unable to assume role $CODEBUILD_TARGET_ACCOUNT_ROLE in target account $TARGET_ACCOUNT"
                       exit 1
                     fi
 
