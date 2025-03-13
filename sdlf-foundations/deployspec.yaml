@@ -18,7 +18,7 @@ deploy:
             deps=(
               "https://raw.githubusercontent.com/aws/serverless-application-model/develop/bin/sam-translate.py"
               "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip"
-              "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/main/sdlf-cicd/template-generic-cfn-module.yaml"
+              "https://raw.githubusercontent.com/diegoperezh/data-lakes-on-aws/refs/heads/sdlf/sdlf-cicd/template-generic-cfn-module.yaml"
             )
             for u in "${deps[@]}"; do
               aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
