@@ -14,6 +14,11 @@ Parameters:
     Description: Suffix appended to the CodeBuild project name
     Type: String
     AllowedPattern: '[A-Za-z0-9\-_]{1,139}'
+  pDeploymentType:
+    Description: Deployment type
+    Type: String
+    AllowedValues: [cfn-template, cfn-module, cdk-construct]
+    Default: cfn-template
   pTemplatePrefixes:
     Description: Prefixes of CloudFormation template files (in YAML)
     Type: String
@@ -301,7 +306,7 @@ Resources:
             Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
           - Name: DEPLOYMENT_TYPE
             Type: PLAINTEXT
-            Value: cfn-template
+            Value: !Ref pDeploymentType
           - Name: SDLF_CONSTRUCT
             Type: PLAINTEXT
             Value: sdlf-foundations

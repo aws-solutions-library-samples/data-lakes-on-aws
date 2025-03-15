@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploy a CloudFormation module
+
+Parameters:
+  pModuleName:
+    Description: Name of the module
+    Type: String
+  pModuleGitRef:
+    Description: Git reference (commit id) with the sources of this module version
+    Type: String
+  pModuleS3Url:
+    Description: S3 URL (https) to the module template
+    Type: String
+
+Resources:
+  rCloudFormationModuleSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /sdlf/${pModuleName}/${pModuleGitRef}
+      Type: String
+      Value: !Ref pModuleS3Url
+      Description: S3 URL (https) to the module template of this module version
