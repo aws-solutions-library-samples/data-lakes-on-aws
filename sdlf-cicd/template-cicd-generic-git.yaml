@@ -6,6 +6,11 @@ Parameters:
     Description: S3 Bucket Prefix if different from default. Must be a valid S3 Bucket name
     Type: String
     Default: sdlf
+  pDataAccountId:
+    Description: AWS account ID where data resources are deployed
+    Type: String
+    AllowedPattern: (\d{12}|^$)
+    ConstraintDescription: Must be an AWS account ID
   pCodebuildBootstrap:
     Description: Deploy the sdlf-cicd-bootstrap CodeBuild project
     Type: String
@@ -147,7 +152,7 @@ Resources:
                   - !GetAtt rKMSKey.Arn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix} # TODO maybe get target account
+                Resource: !Sub arn:${AWS::Partition}:iam::${pDataAccountId}:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
 
   rSdlfBootstrapCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -173,7 +178,7 @@ Resources:
             Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
           - Name: TARGET_ACCOUNT
             Type: PLAINTEXT
-            Value: "111111111111" # TODO
+            Value: !Ref pDataAccountId
           - Name: SDLF_CONSTRUCT
             Type: PLAINTEXT
             Value: sdlf-foundations
@@ -268,7 +273,7 @@ Resources:
                   - !GetAtt rKMSKey.Arn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix} # TODO maybe get target account
+                Resource: !Sub arn:${AWS::Partition}:iam::${pDataAccountId}:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
               - Effect: Allow
                 Action:
                   - cloudformation:CreateChangeSet
@@ -312,7 +317,7 @@ Resources:
             Value: sdlf-foundations
           - Name: TARGET_ACCOUNT
             Type: PLAINTEXT
-            Value: "111111111111"
+            Value: !Ref pDataAccountId
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
             Value: !Ref rArtifactsBucket
