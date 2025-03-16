@@ -16,7 +16,7 @@ usage () { echo "
 Serverless Data Lake Framework (SDLF) is a collection of infrastructure-as-code artifacts to deploy data architectures on AWS.
 This script creates a CodeBuild project with the set of permissions required to deploy the specified SDLF constructs.
 
-Usage: ./deploy-generic.sh [-V | --version] [-h | --help] [-p | --profile <aws-profile>] [-d | --data-account-id <account-id>] [-c sdlf-construct1 | --construct sdlf-construct1] [-c sdlf-construct...] <name>
+Usage: ./deploy-cicd.sh [-V | --version] [-h | --help] [-p | --profile <aws-profile>] [-d | --data-account-id <account-id>] [-c sdlf-construct1 | --construct sdlf-construct1] [-c sdlf-construct...] <name>
 
 Options
   -V, --version -- Print the SDLF version
@@ -30,10 +30,10 @@ Options
 
 Examples
   Create a CodeBuild project named sdlf-main able to deploy any SDLF construct:
-  ${bold}./deploy-generic.sh${notbold} ${underline}sdlf-main${notunderline} ${bold}-c${notbold} ${underline}sdlf${notunderline}
+  ${bold}./deploy-cicd.sh${notbold} ${underline}sdlf-main${notunderline} ${bold}-c${notbold} ${underline}sdlf${notunderline}
 
   Create a CodeBuild project named sdlf-data-team able to deploy technical catalogs, data processing workflows and consumption tools:
-  ${bold}./deploy-generic.sh${notbold} ${underline}sdlf-data-team${notunderline} ${bold}-c${notbold} ${underline}sdlf-dataset${notunderline} ${bold}-c${notbold} ${underline}sdlf-stage${notunderline} ${bold}-c${notbold} ${underline}sdlf-team${notunderline}
+  ${bold}./deploy-cicd.sh${notbold} ${underline}sdlf-data-team${notunderline} ${bold}-c${notbold} ${underline}sdlf-dataset${notunderline} ${bold}-c${notbold} ${underline}sdlf-stage${notunderline} ${bold}-c${notbold} ${underline}sdlf-team${notunderline}
 
 More details and examples on https://sdlf.readthedocs.io/en/latest/constructs/cicd/
 "; }
@@ -134,7 +134,7 @@ do
     shift
 done
 
-if [ -z ${1+x} ]; then die 'ERROR: "./deploy-generic.sh" requires a non-option argument.'; fi
+if [ -z ${1+x} ]; then die 'ERROR: "./deploy-cicd.sh" requires a non-option argument.'; fi
 
 if "$pflag"
 then

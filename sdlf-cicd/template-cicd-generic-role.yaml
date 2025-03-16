@@ -7,7 +7,7 @@ Parameters:
     Type: String
     AllowedPattern: '[A-Za-z0-9\-_]{1,139}'
   pCodeBuildAccountId:
-    Description: AWS account ID where the CodeBuild project is deployed (with ./deploy-generic.sh)
+    Description: AWS account ID where the CodeBuild project is deployed (with ./deploy-cicd.sh)
     Type: String
     AllowedPattern: (\d{12}|^$)
     ConstraintDescription: Must be an AWS account ID

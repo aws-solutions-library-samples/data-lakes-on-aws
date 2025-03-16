@@ -11,12 +11,12 @@
 * `sdlf-cicd-{name provided by the user}`, deploying the actual infrastructure,
 * and the third appearing during deployment, that should not be modified: `codeseeder-sdlf`.
 
-These CodeBuild projects are required in every account SDLF is used, and can be deployed with the `./deploy-generic.sh` script in the `sdlf-cicd` module:
+These CodeBuild projects are required in every account SDLF is used, and can be deployed with the `./deploy-cicd.sh` script in the `sdlf-cicd` module:
 
 ```
-./deploy-generic.sh --help # provides details on the available options
+./deploy-cicd.sh --help # provides details on the available options
 
-./deploy-generic.sh -p aws_profile sdlf-main
+./deploy-cicd.sh -p aws_profile sdlf-main
 ```
 
 Replace `aws_profile` with the name of the AWS profile giving access to the account SDLF will be used in. `sdlf-main` is a user-provided name - feel free to use a different one, within constraints.
@@ -25,17 +25,17 @@ Once the CodeBuild projects are created, the user can edit them manually to conf
 
 There is no SDLF-specific DevOps account in this setup.
 
-`./deploy-generic.sh` can be run multiple times in the same account if required, with different names. This can be useful if teams with different scopes are responsible for the data architectures. For example:
+`./deploy-cicd.sh` can be run multiple times in the same account if required, with different names. This can be useful if teams with different scopes are responsible for the data architectures. For example:
 
 ```
-./deploy-generic.sh -p aws_profile sdlf-main
-./deploy-generic.sh -p aws_profile sdlf-engineering
+./deploy-cicd.sh -p aws_profile sdlf-main
+./deploy-cicd.sh -p aws_profile sdlf-engineering
 ```
 
 This would create the following:
 
 * `sdlf-cicd-bootstrap`
-  * this is created only once, no matter how many times `./deploy-generic.sh` is used in a given account.
+  * this is created only once, no matter how many times `./deploy-cicd.sh` is used in a given account.
 * `sdlf-cicd-sdlf-main`
   * this CodeBuild project could be linked to a git repository owned by a data platform team, creating centralized storage layers with `sdlf-foundations`.
 * `sdlf-cicd-sdlf-engineering`

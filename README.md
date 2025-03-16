@@ -74,11 +74,13 @@ cd ./aws-serverless-data-lake-framework-2.8.0/
 2. Deploy the CodeBuild projects for bootstrapping the rest of the infrastructure:
 ```
 cd sdlf-cicd/
-./deploy-generic.sh -p aws_profile_name datalake
+./deploy-cicd.sh -p aws_profile_name datalake
+./deploy-role.sh -p aws_profile_name datalake
 ```
 
-3. Start the `sdlf-cicd-bootstrap` project and wait for it to complete. It publishes CloudFormation modules for each component of SDLF.
-4. Start the `sdlf-cicd-datalake` project and wait for it to complete. It creates an end-to-end data lake infrastructure, including data processing and consumption services.
+`./deploy-cicd.sh --help` and `./deploy-role.sh --help` give more details about available options.
+
+3. Start the `sdlf-cicd-datalake` project and wait for it to complete. It creates an end-to-end data lake infrastructure, including data processing and consumption services.
 
 
 ## Deployment Validation
