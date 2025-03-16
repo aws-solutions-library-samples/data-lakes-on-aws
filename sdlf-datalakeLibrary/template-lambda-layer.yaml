@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploy Lambda Layer
+
+Parameters:
+  pArtifactsBucket:
+    Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: String
+  pLayerName:
+    Description: Name of the lambda layer
+    Type: String
+    AllowedPattern: "^[a-zA-Z0-9]*$"
+  pGitRef:
+    Description: Git reference (commit id) with the sources of these layers
+    Type: String
+
+Resources:
+  rDatalakeLibraryLambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.12
+      Content:
+        S3Bucket: !Ref pArtifactsBucket
+        S3Key: !Sub sdlf/layers/${pLayerName}-${pGitRef}.zip
+      Description: !Sub ${pLayerName} Lambda Layer
+      LayerName: !Sub "sdlf-${pLayerName}"
+
+  rDatalakeLibraryLambdaLayerSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/SDLF/Lambda/Latest${pLayerName}Layer"
+      Type: String
+      Value: !Ref rDatalakeLibraryLambdaLayer
+      Description: !Sub The ARN of the latest version of the ${pLayerName} layer

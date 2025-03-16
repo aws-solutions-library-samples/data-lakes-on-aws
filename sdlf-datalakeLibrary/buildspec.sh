@@ -2,16 +2,6 @@
 
 CFN_ENDPOINT="https://cloudformation.$AWS_REGION.amazonaws.com"
 
-deps=(
-    "https://raw.githubusercontent.com/awslabs/aws-serverless-data-lake-framework/main/sdlf-cicd/template-lambda-layer.yaml"
-)
-for u in "${deps[@]}"; do
-    aws s3api get-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" "${u##*/}" || {
-    curl -L -O "$u"
-    aws s3api put-object --bucket "$ARTIFACTS_BUCKET" --key "${u##*/}" --body "${u##*/}"
-    }
-done
-
 pip uninstall -y aws-sam-cli && unzip -q aws-sam-cli-linux-x86_64.zip -d sam-installation
 ./sam-installation/install && sam --version
 pip install "cfn-lint<1" cloudformation-cli
@@ -35,7 +25,7 @@ aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
     --template-file ./template-lambda-layer.yaml \
     --parameter-overrides \
         pArtifactsBucket="$ARTIFACTS_BUCKET" \
-        pLayers="$MODULE" \
+        pLayerName="$MODULE" \
         pGitRef="$LAYER_HASH" \
     --tags Framework=sdlf \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" || exit 1

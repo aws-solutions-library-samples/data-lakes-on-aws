@@ -1,10 +1,20 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::LanguageExtensions
 Description: Deploy Lambda Layers
 
 Parameters:
   pArtifactsBucket:
     Description: The artifacts bucket used by CodeBuild and CodePipeline
+    Type: String
+  pDomain:
+    Description: Name of the data domain (all lowercase, no symbols or spaces)
+    Type: String
+  pEnvironment:
+    Description: Environment name
+    Type: String
+    AllowedValues: [dev, test, prod]
+  pTeamName:
+    Description: Name of the team (all lowercase, no symbols or spaces)
     Type: String
   pLayers:
     Description: List of folder names from layers/ directory
@@ -13,6 +23,9 @@ Parameters:
   pGitRef:
     Description: Git reference (commit id) with the sources of these layers
     Type: String
+
+Conditions:
+  DatalakeLibraryLayer: !Equals [!Ref pTeamName, sdlf]
 
 Resources:
   ######## LAMBDA LAYERS ########
@@ -26,14 +39,24 @@ Resources:
           - python3.12
         Content:
           S3Bucket: !Ref pArtifactsBucket
-          S3Key: !Sub sdlf/layers/${LayerName}-${pGitRef}.zip
-        Description: !Sub ${LayerName} Lambda Layer
-        LayerName: !Sub "sdlf-${LayerName}"
+          S3Key: !Sub layers/${pDomain}/${pEnvironment}/${pTeamName}/${LayerName}-${pGitRef}.zip
+        Description: !Sub ${pTeamName} ${LayerName} Lambda Layer
+        LayerName:
+          !If [
+            DatalakeLibraryLayer,
+            !Sub "sdlf-${LayerName}",
+            !Sub "sdlf-${pTeamName}-${LayerName}"
+          ]
     "r${LayerName}LambdaLayerSsm":
       Type: AWS::SSM::Parameter
       Properties:
-        Name: !Sub "/SDLF/Lambda/Latest${LayerName}Layer"
+        Name:
+          !If [
+            DatalakeLibraryLayer,
+            !Sub "/SDLF/Lambda/Latest${LayerName}Layer",
+            !Sub "/SDLF/Lambda/${pTeamName}/Latest${LayerName}Layer"
+          ]
         Type: String
         Value: !Ref
               "Fn::Sub": r${LayerName}LambdaLayer
-        Description: !Sub The ARN of the latest version of the ${LayerName} layer
+        Description: !Sub The ARN of the latest version of the ${pTeamName} ${LayerName} layer
