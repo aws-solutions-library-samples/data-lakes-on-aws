@@ -36,8 +36,7 @@ if [ "$DEPLOYMENT_TYPE" = "cfn-template" ]; then
     cd src || exit
     # sam package doesn't play well with resolve: in TemplateURL fields
     SSM_ENDPOINT="https://ssm.$AWS_REGION.amazonaws.com"
-    pipeline_template_url=$(aws ssm --endpoint-url "$SSM_ENDPOINT" get-parameter --name "/sdlf/pipeline/main" --query "Parameter.Value" --outp
-ut text)
+    pipeline_template_url=$(aws ssm --endpoint-url "$SSM_ENDPOINT" get-parameter --name "/sdlf/pipeline/main" --query "Parameter.Value" --output text)
     sed -i "s|{{resolve:ssm:/sdlf/pipeline/main}}|$pipeline_template_url|g" "./$MODULE.yaml"
     sam package --template-file "./$MODULE.yaml" --s3-bucket "$ARTIFACTS_BUCKET" --s3-prefix sdlf --output-template-file template.yaml || exit 1
     TEMPLATE_BASE_FILE_PATH="sdlf/modules/$MODULE"
