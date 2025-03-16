@@ -345,7 +345,7 @@ Resources:
                     git clone --single-branch --branch main https://github.com/awslabs/aws-serverless-data-lake-framework.git
                     cd aws-serverless-data-lake-framework/sdlf-utils/workshop-examples/10-demo/sdlf-workshop/
                 - |-
-                    declare -a SDLF_CONSTRUCTS=("sdlf-foundations" "sdlf-dataset" "sdlf-pipeline" "sdlf-datalakeLibrary" "sdlf-stage-lambda" "sdlf-stage-glue" "sdlf-team")
+                    declare -a SDLF_CONSTRUCTS=("sdlf-foundations" "sdlf-dataset" "sdlf-pipeline" "sdlf-datalakeLibrary" "sdlf-team")
                     CODEBUILD_ENDPOINT_URL="https://codebuild.$AWS_REGION.amazonaws.com"
                     build_ids=()
                     for SDLF_CONSTRUCT in "${SDLF_CONSTRUCTS[@]}"
@@ -370,6 +370,34 @@ Resources:
                       if [ "$build_status" != "SUCCEEDED" ]
                       then
                         echo "At least one bootstrap build failed: id $build_id"
+                        exit 1
+                      fi
+                    done
+
+                    # build SDLF stages
+                    declare -a SDLF_CONSTRUCTS=("sdlf-stage-lambda" "sdlf-stage-glue")
+                    build_ids=()
+                    for SDLF_CONSTRUCT in "${SDLF_CONSTRUCTS[@]}"
+                    do
+                      build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
+                          --project-name sdlf-cicd-bootstrap \
+                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCT,value="$SDLF_CONSTRUCT" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --query "build.id" --output text)
+                      echo "Building $SDLF_CONSTRUCT: $build_id"
+                      build_ids+=("$build_id")
+                    done
+                    echo "Waiting for all sdlf stage bootstrap builds to complete..."
+                    for build_id in "${build_ids[@]}"
+                    do
+                      build_status="IN_PROGRESS"
+                      while [ "$build_status" == "IN_PROGRESS" ]
+                      do
+                        build_status=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" batch-get-builds --ids "$build_id" --query "builds[0].buildStatus" --output text)
+                        sleep 20
+                      done
+                      if [ "$build_status" != "SUCCEEDED" ]
+                      then
+                        echo "At least one sdlf stage bootstrap build failed: id $build_id"
                         exit 1
                       fi
                     done
