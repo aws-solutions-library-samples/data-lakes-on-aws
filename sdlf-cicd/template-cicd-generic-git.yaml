@@ -415,14 +415,13 @@ Resources:
                     fi
 
                     CLOUDFORMATION_ENDPOINT_URL="https://cloudformation.$AWS_REGION.amazonaws.com"
-                    USER_ROLE_NAME=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/g' | sed 's/:assumed-role/:role/g' | rev | cut -d'/' -f 2- | rev | cut -d'/' -f 2-)
 
                     for template_prefix in $TEMPLATE_PREFIXES
                     do
                       for template in "$template_prefix"-*.yaml
                       do
                         [ -e "$template" ] || break # null check
-                        sed -i "s|pCicdRole: Admin|pCicdRole: $USER_ROLE_NAME|g" "$template"
+                        sed -i "s|pCicdRole: Admin|pCicdRole: $TARGET_ACCOUNT_CODEBUILD_ROLE|g" "$template"
                         template_basename=$(basename "$template" .yaml)
 
                         STACK_NAME="sdlf-$template_basename"
