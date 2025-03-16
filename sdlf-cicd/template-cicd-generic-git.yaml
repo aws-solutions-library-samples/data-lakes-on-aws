@@ -173,7 +173,7 @@ Resources:
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
             Value: !Ref rArtifactsBucket
-          - Name: CODEBUILD_TARGET_ACCOUNT_ROLE
+          - Name: TARGET_ACCOUNT_CODEBUILD_ROLE
             Type: PLAINTEXT
             Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
           - Name: TARGET_ACCOUNT
@@ -208,14 +208,14 @@ Resources:
                   pip3 install --upgrade pip setuptools
                 - |-
                   STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                  if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$CODEBUILD_TARGET_ACCOUNT_ROLE" --role-session-name "codebuild-bootstrap")
+                  if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$TARGET_ACCOUNT_CODEBUILD_ROLE" --role-session-name "codebuild-bootstrap")
                   then
                     AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
                     AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
                     AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
                     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
                   else
-                    echo "Unable to assume role $CODEBUILD_TARGET_ACCOUNT_ROLE in target account $TARGET_ACCOUNT"
+                    echo "Unable to assume role $TARGET_ACCOUNT_CODEBUILD_ROLE in target account $TARGET_ACCOUNT"
                     exit 1
                   fi
 
@@ -306,7 +306,7 @@ Resources:
           - Name: AWS_PARTITION
             Type: PLAINTEXT
             Value: !Ref AWS::Partition
-          - Name: CODEBUILD_TARGET_ACCOUNT_ROLE
+          - Name: TARGET_ACCOUNT_CODEBUILD_ROLE
             Type: PLAINTEXT
             Value: !Sub sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
           - Name: DEPLOYMENT_TYPE
@@ -403,14 +403,14 @@ Resources:
                     done
 
                     STS_ENDPOINT_URL="https://sts.$AWS_REGION.amazonaws.com"
-                    if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$CODEBUILD_TARGET_ACCOUNT_ROLE" --role-session-name "codebuild-bootstrap")
+                    if crossaccount_role=$(aws sts --endpoint-url "$STS_ENDPOINT_URL" assume-role --role-arn "arn:$AWS_PARTITION:iam::$TARGET_ACCOUNT:role/$TARGET_ACCOUNT_CODEBUILD_ROLE" --role-session-name "codebuild-bootstrap")
                     then
                       AWS_ACCESS_KEY_ID=$(echo "$crossaccount_role" | jq -r .Credentials.AccessKeyId)
                       AWS_SECRET_ACCESS_KEY=$(echo "$crossaccount_role" | jq -r .Credentials.SecretAccessKey)
                       AWS_SESSION_TOKEN=$(echo "$crossaccount_role" | jq -r .Credentials.SessionToken)
                       export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
                     else
-                      echo "Unable to assume role $CODEBUILD_TARGET_ACCOUNT_ROLE in target account $TARGET_ACCOUNT"
+                      echo "Unable to assume role $TARGET_ACCOUNT_CODEBUILD_ROLE in target account $TARGET_ACCOUNT"
                       exit 1
                     fi
 
