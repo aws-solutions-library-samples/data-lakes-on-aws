@@ -102,7 +102,7 @@ do
             bflag=true;
             CODEBUILD_ACCOUNT_ID=${1#*=} # delete everything up to "=" and assign the remainder
             ;;
-        --codebuild-account-id=) # handle the case of an empty --region=
+        --codebuild-account-id=) # handle the case of an empty --codebuild-account-id=
             die 'ERROR: "--codebuild-account-id" requires a non-empty option argument.'
             ;;
         -c|--construct)

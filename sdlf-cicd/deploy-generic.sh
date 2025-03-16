@@ -16,7 +16,7 @@ usage () { echo "
 Serverless Data Lake Framework (SDLF) is a collection of infrastructure-as-code artifacts to deploy data architectures on AWS.
 This script creates a CodeBuild project with the set of permissions required to deploy the specified SDLF constructs.
 
-Usage: ./deploy-generic.sh [-V | --version] [-h | --help] [-p | --profile <aws-profile>] [-c sdlf-construct1 | --construct sdlf-construct1 ] [-c sdlf-construct...] <name>
+Usage: ./deploy-generic.sh [-V | --version] [-h | --help] [-p | --profile <aws-profile>] [-d | --data-account-id <account-id>] [-c sdlf-construct1 | --construct sdlf-construct1] [-c sdlf-construct...] <name>
 
 Options
   -V, --version -- Print the SDLF version
@@ -40,6 +40,7 @@ More details and examples on https://sdlf.readthedocs.io/en/latest/constructs/ci
 
 pflag=false
 rflag=false
+dflag=false
 cflag=false
 
 DIRNAME=$(dirname "$0")
@@ -87,6 +88,22 @@ do
         --region=) # handle the case of an empty --region=
             die 'ERROR: "--region" requires a non-empty option argument.'
             ;;
+        -d|--data-account-id)
+            if [ "$2" ]; then
+                dflag=true;
+                DATA_ACCOUNT_ID=$2
+                shift
+            else
+                die 'ERROR: "--data-account-id" requires a non-empty option argument.'
+            fi
+            ;;
+        --data-account-id=?*)
+            dflag=true;
+            DATA_ACCOUNT_ID=${1#*=} # delete everything up to "=" and assign the remainder
+            ;;
+        --data-account-id=) # handle the case of an empty --data-account-id=
+            die 'ERROR: "--data-account-id" requires a non-empty option argument.'
+            ;;
         -c|--construct)
             if [ "$2" ]; then
                 cflag=true;
@@ -127,6 +144,11 @@ if "$rflag"
 then
     echo "using AWS region $REGION..." >&2
 fi
+if ! "$dflag"
+then
+    echo "Data account id not provided, assuming it is the same as the CodeBuild project" >&2
+    DATA_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"})
+fi
 
 STACK_NAME="sdlf-cicd-$1"
 DEPLOY_CODEBUILD_BOOTSTRAP=true
@@ -150,6 +172,7 @@ aws cloudformation deploy \
     --stack-name "$STACK_NAME" \
     --template-file "$DIRNAME"/template-cicd-generic-git.yaml \
     --parameter-overrides \
+        pDataAccountId="$DATA_ACCOUNT_ID" \
         pCodebuildBootstrap="$DEPLOY_CODEBUILD_BOOTSTRAP" \
         pCodeBuildSuffix="$1" \
         pDeploymentType="cfn-template" \
