@@ -1,3 +1,5 @@
+ignore_templates:
+  - "sdlf-utils/workshop-examples/10-demo/sdlf-workshop/*.yaml"
 include_checks:
   - I
 ignore_checks:
