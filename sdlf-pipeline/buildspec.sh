@@ -41,7 +41,7 @@ if [ "$DEPLOYMENT_TYPE" = "cfn-template" ]; then
     TEMPLATE_URL="https://$ARTIFACTS_BUCKET.s3.$AWS_REGION.amazonaws.com/$TEMPLATE_BASE_FILE_PATH/template.yaml"
     aws cloudformation --endpoint-url "$CFN_ENDPOINT" validate-template --template-url "$TEMPLATE_URL"
 
-    STACK_NAME="sdlf-cfn-module-$MODULE"
+    STACK_NAME="sdlf-$DEPLOYMENT_TYPE-$MODULE"
     aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
         --stack-name "$STACK_NAME" \
         --template-file ../template-generic-cfn-template.yaml \
@@ -88,7 +88,7 @@ if [ "$DEPLOYMENT_TYPE" = "cfn-module" ]; then
         fi
     fi
 
-    STACK_NAME="sdlf-cfn-module-$MODULE_FRAMEWORK-$MODULE"
+    STACK_NAME="sdlf-$DEPLOYMENT_TYPE-$MODULE_FRAMEWORK-$MODULE"
     aws cloudformation --endpoint-url "$CFN_ENDPOINT" deploy \
         --stack-name "$STACK_NAME" \
         --template-file ../../template-generic-cfn-module.yaml \
