@@ -1,6 +1,7 @@
+# ruff: noqa: F401
 import logging
 
-from .__version__ import __title__, __version__  # noqa: F401;
+from .__version__ import __title__, __version__
 from .config import (  # noqa: F401;
     DynamoConfiguration,
     KMSConfiguration,
@@ -8,7 +9,7 @@ from .config import (  # noqa: F401;
     SQSConfiguration,
     StateMachineConfiguration,
 )
-from .peh import PipelineExecutionHistoryAPI  # noqa: F401;
+from .peh import PipelineExecutionHistoryAPI
 
 name = "sdlf"
 
