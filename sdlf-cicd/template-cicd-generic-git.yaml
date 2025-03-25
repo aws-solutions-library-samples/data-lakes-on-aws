@@ -76,7 +76,7 @@ Resources:
         !If [
           UseCustomBucketPrefix,
           !Sub "${pCustomBucketPrefix}-cicd-cfn-artifacts",
-          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-cicd-cfn-artifacts",
+          !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-${pCodeBuildSuffix}-cicd-cfn-artifacts",
         ]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -438,5 +438,7 @@ Resources:
               - "*"
               - "**/*"
 
-
-
+Outputs:
+  oArtifactsBucket:
+    Description: Name of the Artifacts S3 bucket
+    Value: !Ref rArtifactsBucket
