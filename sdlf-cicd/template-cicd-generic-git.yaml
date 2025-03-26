@@ -184,7 +184,7 @@ Resources:
             Value: cfn-template # can also be set to cfn-module
           - Name: SDLF_CONSTRUCTS
             Type: PLAINTEXT
-            Value: sdlf-foundations sdlf-dataset sdlf-pipeline sdlf-team
+            Value: sdlf-foundations sdlf-dataset sdlf-datalakeLibrary sdlf-pipeline sdlf-team
           - Name: SDLF_STAGE_CONSTRUCTS
             Type: PLAINTEXT
             Value: sdlf-stage-lambda sdlf-stage-glue
