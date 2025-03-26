@@ -11,6 +11,12 @@ Parameters:
     Type: String
     AllowedPattern: (\d{12}|^$)
     ConstraintDescription: Must be an AWS account ID
+  pCodeBuildBootstrapRole:
+    Description: "sdlf-cicd-bootstrap CodeBuild IAM role name"
+    Type: String
+  pCodeBuildUserRepositoryRole:
+    Description: "sdlf-cicd-CodeBuildSuffix CodeBuild IAM role name"
+    Type: String
 
 Resources:
   rSdlfCicdCodeBuildRole:
@@ -25,12 +31,11 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: codebuild.amazonaws.com
+              AWS:
+                - !Sub arn:${AWS::Partition}:iam::${pCodeBuildAccountId}:role/${pCodeBuildBootstrapRole}
+                - !Sub arn:${AWS::Partition}:iam::${pCodeBuildAccountId}:role/${pCodeBuildUserRepositoryRole}
             Action:
               - sts:AssumeRole
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": "111111111111"
       Policies:
         - PolicyName: sdlf-codebuild
           PolicyDocument:

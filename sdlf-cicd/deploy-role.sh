@@ -23,6 +23,7 @@ Options
   -V, --version -- Print the SDLF version
   -h, --help -- Show this help message
   -p -- Name of the AWS profile to use
+  -b -- AWS account ID of the CodeBuild project
   -c -- Name of the SDLF construct that will be used
   <name> -- Name to uniquely identify this deployment
 
@@ -149,6 +150,15 @@ if ! "$bflag"
 then
     echo "CodeBuild project is assumed to be in the same AWS account" >&2
     CODEBUILD_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"})
+
+    CODEBUILD_ROLE=$(aws codebuild batch-get-projects --names "sdlf-cicd-$1" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
+    CODEBUILD_ROLE_BOOTSTRAP=$(aws codebuild batch-get-projects --names "sdlf-cicd-bootstrap" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
+else
+    if [ -z ${2+x} ]; then die 'ERROR: "./deploy-role.sh" requires a second non-option argument providing the CodeBuild project IAM role name.'; fi
+    if [ -z ${3+x} ]; then die 'ERROR: "./deploy-role.sh" requires a third non-option argument providing the boostrap CodeBuild project IAM role name.'; fi
+
+    CODEBUILD_ROLE=$2
+    CODEBUILD_ROLE_BOOTSTRAP=$3
 fi
 
 STACK_NAME="sdlf-cicd-role-$CODEBUILD_ACCOUNT_ID-$1"
@@ -159,6 +169,8 @@ aws cloudformation deploy \
     --parameter-overrides \
         pCodeBuildAccountId="$CODEBUILD_ACCOUNT_ID" \
         pCodeBuildSuffix="$1" \
+        pCodeBuildBootstrapRole="$CODEBUILD_ROLE_BOOTSTRAP" \
+        pCodeBuildUserRepositoryRole="$CODEBUILD_ROLE" \
     --tags Framework=sdlf \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
     ${REGION:+--region "$REGION"} \

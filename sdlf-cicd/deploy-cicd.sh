@@ -182,6 +182,14 @@ aws cloudformation deploy \
     ${REGION:+--region "$REGION"} \
     ${PROFILE:+--profile "$PROFILE"} || exit 1
 
+if ! "$dflag"
+then
+    CODEBUILD_ROLE=$(aws codebuild batch-get-projects --names "sdlf-cicd-$1" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
+    CODEBUILD_ROLE_BOOTSTRAP=$(aws codebuild batch-get-projects --names "sdlf-cicd-bootstrap" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
+    echo "Role names to provide to ./deploy-role.sh:"
+    echo "$CODEBUILD_ROLE $CODEBUILD_ROLE_BOOTSTRAP"
+fi
+
 if "$cflag"
 then
     echo "The list ${CONSTRUCTS[*]} will be used in a future release to restrict CodeBuild permissions to the set of permissions required by the constructs it can deploy."
