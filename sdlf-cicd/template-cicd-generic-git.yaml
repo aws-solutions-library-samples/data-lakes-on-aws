@@ -179,9 +179,15 @@ Resources:
           - Name: TARGET_ACCOUNT
             Type: PLAINTEXT
             Value: !Ref pDataAccountId
-          - Name: SDLF_CONSTRUCT
+          - Name: DEPLOYMENT_TYPE
             Type: PLAINTEXT
-            Value: sdlf-foundations
+            Value: cfn-template # can also be set to cfn-module
+          - Name: SDLF_CONSTRUCTS
+            Type: PLAINTEXT
+            Value: sdlf-foundations sdlf-dataset sdlf-pipeline sdlf-team
+          - Name: SDLF_STAGE_CONSTRUCTS
+            Type: PLAINTEXT
+            Value: sdlf-stage-lambda sdlf-stage-glue
       ServiceRole: !GetAtt rSdlfBootstrapCodeBuildServiceRole.Arn
       Source:
         Type: NO_SOURCE
@@ -219,8 +225,20 @@ Resources:
                     exit 1
                   fi
 
-                  cd "$SDLF_CONSTRUCT" || exit 1
-                  bash buildspec.sh
+                  echo "SDLF_CONSTRUCTS: $SDLF_CONSTRUCTS"
+                  for SDLF_CONSTRUCT in $SDLF_CONSTRUCTS; do
+                    echo "Building $SDLF_CONSTRUCT"
+                    pushd "$SDLF_CONSTRUCT" || exit 1
+                    bash buildspec.sh || exit 1
+                    popd || exit 1
+                  done
+                  echo "SDLF_STAGE_CONSTRUCTS: $SDLF_STAGE_CONSTRUCTS"
+                  for SDLF_CONSTRUCT in $SDLF_STAGE_CONSTRUCTS; do
+                    echo "Building $SDLF_CONSTRUCT"
+                    pushd "$SDLF_CONSTRUCT" || exit 1
+                    bash buildspec.sh || exit 1
+                    popd || exit 1
+                  done
           artifacts:
             files:
               - "*"
@@ -352,7 +370,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCT,value="$SDLF_CONSTRUCT" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
@@ -381,7 +399,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCT,value="$SDLF_CONSTRUCT" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
