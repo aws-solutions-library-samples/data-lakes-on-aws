@@ -19,15 +19,14 @@ do
     esac
 done
 
-if ! "$pflag"
+if "$pflag"
 then
-    echo "-p not specified, using default..." >&2
-    PROFILE="default"
+    echo "using AWS profile $PROFILE..." >&2
 fi
-REGION=$(aws configure get region --profile "$PROFILE")
+REGION=$(aws configure get region ${PROFILE:+--profile "$PROFILE"})
 
-ARTIFACTS_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/storage/rArtifactsBucket/dev" --query "Parameter.Value" --output text)
-aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" --profile "$PROFILE"
+ARTIFACTS_BUCKET=$(aws --region "$REGION" ssm get-parameter --name "/sdlf/storage/rArtifactsBucket/dev" --query "Parameter.Value" --output text ${PROFILE:+--profile "$PROFILE"})
+aws s3 cp "$DIRNAME/scripts/legislators-glue-job.py" "s3://$ARTIFACTS_BUCKET/artifacts/" ${PROFILE:+--profile "$PROFILE"}
 
 mkdir "$DIRNAME"/output
 
@@ -35,28 +34,28 @@ function send_legislators()
 {
   ORIGIN="$DIRNAME/data/"
   
-  RAW_BUCKET=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/storage/rRawBucket/dev" --query "Parameter.Value" --output text)
-  KMS_KEY=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/sdlf/dataset/rKMSDataKey/dev" --query "Parameter.Value" --output text)
+  RAW_BUCKET=$(aws --region "$REGION" ssm get-parameter --name "/sdlf/storage/rRawBucket/dev" --query "Parameter.Value" --output text ${PROFILE:+--profile "$PROFILE"})
+  KMS_KEY=$(aws --region "$REGION" ssm get-parameter --name "/sdlf/dataset/rKMSDataKey/dev" --query "Parameter.Value" --output text ${PROFILE:+--profile "$PROFILE"})
 
   S3_DESTINATION=s3://$RAW_BUCKET/
   COUNT=0
   for FILE in "$ORIGIN"/*.json;
   do
     (( COUNT++ )) || true
-    aws s3 cp "$FILE" "${S3_DESTINATION}legislators/" --profile "$PROFILE" --sse aws:kms --sse-kms-key-id "$KMS_KEY"
+    aws s3 cp "$FILE" "${S3_DESTINATION}legislators/" --sse aws:kms --sse-kms-key-id "$KMS_KEY" ${PROFILE:+--profile "$PROFILE"}
     echo "transferred $COUNT files"
   done
 }
 
-VPC_SUPPORT=$(aws --region "$REGION" --profile "$PROFILE" ssm get-parameter --name "/SDLF/VPC/Enabled" --query "Parameter.Value" --output text 2>/dev/null)
+VPC_SUPPORT=$(aws --region "$REGION" ssm get-parameter --name "/SDLF/VPC/Enabled" --query "Parameter.Value" --output text ${PROFILE:+--profile "$PROFILE"} 2>/dev/null)
 if [ -z "$VPC_SUPPORT" ]
 then
-  aws --region "$REGION" --profile "$PROFILE" ssm put-parameter --name "/SDLF/VPC/Enabled" --value "false" --type String
+  aws --region "$REGION" ssm put-parameter --name "/SDLF/VPC/Enabled" --value "false" --type String ${PROFILE:+--profile "$PROFILE"}
 fi
 
 aws cloudformation package --template-file "$DIRNAME"/scripts/legislators-glue-job.yaml \
   --s3-bucket "$ARTIFACTS_BUCKET" \
-  --profile "$PROFILE" \
+  ${PROFILE:+--profile "$PROFILE"} \
   --output-template-file "$DIRNAME"/output/packaged-template.yaml
 
 STACK_NAME="sdlf-legislators-glue-job"
@@ -67,6 +66,6 @@ aws cloudformation deploy \
     --tags Framework=sdlf \
     --capabilities "CAPABILITY_NAMED_IAM" "CAPABILITY_AUTO_EXPAND" \
     --region "$REGION" \
-    --profile "$PROFILE" || exit 1
+    ${PROFILE:+--profile "$PROFILE"} || exit 1
 
 send_legislators

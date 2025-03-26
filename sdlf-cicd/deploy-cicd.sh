@@ -182,7 +182,7 @@ aws cloudformation deploy \
     ${REGION:+--region "$REGION"} \
     ${PROFILE:+--profile "$PROFILE"} || exit 1
 
-if ! "$dflag"
+if "$dflag"
 then
     CODEBUILD_ROLE=$(aws codebuild batch-get-projects --names "sdlf-cicd-$1" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
     CODEBUILD_ROLE_BOOTSTRAP=$(aws codebuild batch-get-projects --names "sdlf-cicd-bootstrap" --query "projects[0].serviceRole" --output text ${REGION:+--region "$REGION"} ${PROFILE:+--profile "$PROFILE"} | cut -d'/' -f2)
