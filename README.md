@@ -66,9 +66,9 @@ The [SDLF workshop](https://sdlf.workshop.aws/) walks you through the deployment
 
 1. Get the latest stable release of SDLF, unarchive it and cd to the new folder:
 ```
-curl -L -O https://github.com/awslabs/aws-serverless-data-lake-framework/archive/refs/tags/2.9.0.tar.gz
-tar xzf 2.9.0.tar.gz
-cd ./aws-serverless-data-lake-framework-2.9.0/
+curl -L -O https://github.com/awslabs/aws-serverless-data-lake-framework/archive/refs/tags/2.10.0.tar.gz
+tar xzf 2.10.0.tar.gz
+cd ./aws-serverless-data-lake-framework-2.10.0/
 ```
 
 2. Deploy the CodeBuild projects for bootstrapping the rest of the infrastructure:

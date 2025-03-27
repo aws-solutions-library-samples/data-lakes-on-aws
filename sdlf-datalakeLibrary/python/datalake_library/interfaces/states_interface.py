@@ -13,7 +13,7 @@ class StatesInterface:
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
         stepfunctions_endpoint_url = "https://states." + os.getenv("AWS_REGION") + ".amazonaws.com"
-        session_config = Config(user_agent="awssdlf/2.9.0")
+        session_config = Config(user_agent="awssdlf/2.10.0")
         self._states_client = states_client or boto3.client(
             "stepfunctions", endpoint_url=stepfunctions_endpoint_url, config=session_config
         )

@@ -26,7 +26,7 @@ class DynamoInterface:
     def __init__(self, configuration, log_level=None, dynamodb_client=None):
         self.log_level = log_level or os.getenv("LOG_LEVEL", "INFO")
         self._logger = init_logger(__name__, self.log_level)
-        session_config = Config(user_agent="awssdlf/2.9.0")
+        session_config = Config(user_agent="awssdlf/2.10.0")
         self.dynamodb_client = dynamodb_client or boto3.client("dynamodb", config=session_config)
 
         self._config = configuration
