@@ -66,19 +66,19 @@ The [SDLF workshop](https://sdlf.workshop.aws/) walks you through the deployment
 
 1. Get the latest stable release of SDLF, unarchive it and cd to the new folder:
 ```
-curl -L -O https://github.com/awslabs/aws-serverless-data-lake-framework/archive/refs/tags/2.8.0.tar.gz
-tar xzf 2.8.0.tar.gz
-cd ./aws-serverless-data-lake-framework-2.8.0/
+curl -L -O https://github.com/awslabs/aws-serverless-data-lake-framework/archive/refs/tags/2.9.0.tar.gz
+tar xzf 2.9.0.tar.gz
+cd ./aws-serverless-data-lake-framework-2.9.0/
 ```
 
 2. Deploy the CodeBuild projects for bootstrapping the rest of the infrastructure:
 ```
 cd sdlf-cicd/
-./deploy-cicd.sh -p aws_profile_name datalake
 ./deploy-role.sh -p aws_profile_name datalake
+./deploy-cicd.sh -p aws_profile_name datalake
 ```
 
-`./deploy-cicd.sh --help` and `./deploy-role.sh --help` give more details about available options.
+`./deploy-role.sh --help` and `./deploy-cicd.sh --help` give more details about available options.
 
 3. Start the `sdlf-cicd-datalake` project and wait for it to complete. It creates an end-to-end data lake infrastructure, including data processing and consumption services.
 
