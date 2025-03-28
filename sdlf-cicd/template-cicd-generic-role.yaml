@@ -18,7 +18,82 @@ Parameters:
     Description: "sdlf-cicd-CodeBuildSuffix CodeBuild IAM role name"
     Type: String
 
+Conditions:
+  NotCodeBuildAccount: !Not [!Equals [!Ref pCodeBuildAccountId, !Ref AWS::AccountId]]
+
 Resources:
+  rKMSKey:
+    Type: AWS::KMS::Key
+    Condition: NotCodeBuildAccount
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - I3042
+    Properties:
+      Description: SDLF KMS key for encryption of CodeBuild artifacts
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: Allow logs access
+            Effect: Allow
+            Principal:
+              Service: !Sub logs.${AWS::Region}.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+
+  rArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Condition: NotCodeBuildAccount
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "sdlf-${AWS::Region}-${AWS::AccountId}-${pCodeBuildSuffix}-cicd-cfn-artifacts"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: True
+            ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Ref rKMSKey
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  rArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: NotCodeBuildAccount
+    Properties:
+      Bucket: !Ref rArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowSSLRequestsOnly
+            Action: s3:*
+            Effect: Deny
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${rArtifactsBucket}
+            Condition:
+              Bool:
+                aws:SecureTransport: False
+            Principal: "*"
+
   rSdlfCicdCodeBuildRole:
     Type: AWS::IAM::Role
     Properties:

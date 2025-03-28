@@ -338,7 +338,7 @@ Resources:
             Value: !Ref pDataAccountId
           - Name: ARTIFACTS_BUCKET
             Type: PLAINTEXT
-            Value: !Ref rArtifactsBucket
+            Value: !Sub "sdlf-${AWS::Region}-${pDataAccountId}-${pCodeBuildSuffix}-cicd-cfn-artifacts"
           - Name: TEMPLATE_PREFIXES
             Type: PLAINTEXT
             Value: !Ref pTemplatePrefixes
@@ -370,7 +370,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
@@ -399,7 +399,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
