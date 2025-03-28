@@ -152,7 +152,7 @@ Resources:
                   - !GetAtt rKMSKey.Arn
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub arn:${AWS::Partition}:iam::${pDataAccountId}:role/sdlf-cicd-codebuild-${AWS::AccountId}-${pCodeBuildSuffix}
+                Resource: !Sub arn:${AWS::Partition}:iam::*:role/sdlf-cicd-codebuild-${AWS::AccountId}-*
 
   rSdlfBootstrapCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -370,7 +370,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=TARGET_ACCOUNT_CODEBUILD_ROLE,value="$TARGET_ACCOUNT_CODEBUILD_ROLE" name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
@@ -399,7 +399,7 @@ Resources:
                     do
                       build_id=$(aws codebuild --endpoint-url "$CODEBUILD_ENDPOINT_URL" start-build \
                           --project-name sdlf-cicd-bootstrap \
-                          --environment-variables-override name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
+                          --environment-variables-override name=TARGET_ACCOUNT_CODEBUILD_ROLE,value="$TARGET_ACCOUNT_CODEBUILD_ROLE" name=ARTIFACTS_BUCKET,value="$ARTIFACTS_BUCKET" name=TARGET_ACCOUNT,value="$TARGET_ACCOUNT" name=SDLF_CONSTRUCTS,value="$SDLF_CONSTRUCT" name=SDLF_STAGE_CONSTRUCTS,value="" name=DEPLOYMENT_TYPE,value="$DEPLOYMENT_TYPE" \
                           --query "build.id" --output text)
                       echo "Building $SDLF_CONSTRUCT: $build_id"
                       build_ids+=("$build_id")
