@@ -45,7 +45,8 @@
                         ],
                         "IntervalSeconds": 2,
                         "MaxAttempts": 6,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL"
                       }
                     ],
                     "End": true
