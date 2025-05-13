@@ -33,10 +33,10 @@ class StatesInterface:
             step_functions.extend(result["stateMachines"])
         return step_functions
 
-    def run_state_machine(self, machine_arn, message):
+    def run_state_machine(self, machine_arn, message, execution_name=None):
         self._logger.info("running state machine with arn {}".format(machine_arn))
         return self._states_client.start_execution(
-            stateMachineArn=machine_arn, input=json.dumps(message, default=self.json_serial)
+            stateMachineArn=machine_arn, input=json.dumps(message, default=self.json_serial), name=execution_name
         )
 
     def describe_state_execution(self, execution_arn):

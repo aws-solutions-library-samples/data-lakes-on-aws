@@ -265,7 +265,7 @@ Resources:
                 Action:
                   - states:StartExecution
                 Resource:
-                  - !Ref rStateMachine
+                  - !Sub arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:sdlf-${pDeploymentInstance}-sm # not a ref to avoid circular dependency
               - Effect: Allow
                 Action:
                   - sqs:DeleteMessage
@@ -299,43 +299,6 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-
-  # Error Handling Lambda Role
-  rRoleLambdaExecutionErrorStep:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: !Sub /sdlf-${pDeploymentInstance}/
-      # PermissionsBoundary: !Sub "{{resolve:ssm:/SDLF/IAM/${pDataset}/TeamPermissionsBoundary}}"
-      ManagedPolicyArns:
-        - !Ref rLambdaCommonPolicy
-        - !If
-          - RunInVpc
-          - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-          - !Ref "AWS::NoValue"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub sdlf-${pDeploymentInstance}-error
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                  - sqs:GetQueueUrl
-                  - sqs:ListQueues
-                  - sqs:ListDeadLetterSourceQueues
-                  - sqs:ListQueueTags
-                  - sqs:ReceiveMessage
-                  - sqs:SendMessage
-                Resource:
-                  - !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-dlq.fifo
 
   ######## LAMBDA FUNCTIONS #########
   rLambdaRoutingStep:
@@ -386,21 +349,6 @@ Resources:
       Timeout: 300
       Role: !GetAtt rRoleLambdaExecutionMetadataStep.Arn
 
-  rLambdaErrorStep:
-    Type: AWS::Serverless::Function
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: Permissions to write CloudWatch Logs are granted by rLambdaCommonPolicy
-    Properties:
-      CodeUri: ./lambda/error/src
-      FunctionName: !Sub sdlf-${pDeploymentInstance}-error
-      Description: Fallback lambda to handle messages which failed processing
-      MemorySize: 192
-      Timeout: 300
-      Role: !GetAtt rRoleLambdaExecutionErrorStep.Arn
-
   ######## CLOUDWATCH #########
   rRoutingLambdaSsm:
     Type: AWS::SSM::Parameter
@@ -434,15 +382,6 @@ Resources:
     UpdateReplacePolicy: Delete
     Properties:
       LogGroupName: !Sub /aws/lambda/${rLambdaPostMetadataStep}
-      RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
-      KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
-
-  rLambdaErrorStepLogGroup:
-    Type: AWS::Logs::LogGroup
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      LogGroupName: !Sub /aws/lambda/${rLambdaErrorStep}
       RetentionInDays: !Ref pCloudWatchLogsRetentionInDays
       KmsKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
@@ -491,6 +430,15 @@ Resources:
                 Resource: !Sub arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:crawler/sdlf-${pDatasetDeploymentInstance}-*
               - Effect: Allow
                 Action:
+                  - sqs:SendMessage
+                Resource: !Sub arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:sdlf-${pDeploymentInstance}-dlq.fifo
+              - Effect: Allow
+                Action:
+                  - kms:GenerateDataKey*
+                Resource:
+                  - !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
+              - Effect: Allow
+                Action:
                   - xray:PutTraceSegments # W11 exception
                   - xray:PutTelemetryRecords # W11 exception
                   - xray:GetSamplingRules # W11 exception
@@ -521,7 +469,6 @@ Resources:
       DefinitionUri: ./state-machine/stage-glue.asl.json
       DefinitionSubstitutions:
         lPostMetadata: !GetAtt rLambdaPostMetadataStep.Arn
-        lError: !GetAtt rLambdaErrorStep.Arn
         lMaxItemsPerBatch: !Ref pMaxItemsPerBatch
         lTransform: !Ref pGlueJobName
         lWorkerType: !Ref pGlueWorkerType
@@ -530,6 +477,8 @@ Resources:
         # lArguments:
         lCrawlerName: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rAnalyticsGlueCrawler/${pDatasetDeploymentInstance}}}", !Ref pGlueCrawler]
         lWaitTime: 75
+        lDlqUrl: !GetAtt rPipelineInterface.Outputs.oDlqUrl
+        lDeploymentInstance: !Ref pDeploymentInstance
       Role: !GetAtt rStatesExecutionRole.Arn
       Tracing:
         Enabled: !If [EnableTracing, true, false]

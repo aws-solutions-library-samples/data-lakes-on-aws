@@ -1,111 +1,96 @@
 {
   "Comment": "Simple Lambda-based transform",
-  "StartAt": "Try",
+  "StartAt": "Pass",
   "States": {
-    "Try": {
-      "Type": "Parallel",
-      "Branches": [
-        {
-          "StartAt": "Pass",
-          "States": {
-            "Pass": {
-              "Type": "Pass",
-              "Next": "Records",
-              "Parameters": {
-                "Items.$": "States.StringToJson($)"
+    "Pass": {
+      "Type": "Pass",
+      "Next": "Records",
+      "Parameters": {
+        "Items.$": "States.StringToJson($)"
+      }
+    },
+    "Records": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "DISTRIBUTED",
+          "ExecutionType": "STANDARD"
+        },
+        "StartAt": "Execute Lambda Transformation",
+        "States": {
+          "Execute Lambda Transformation": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "ResultSelector": {
+              "run_output.$": "$.Payload"
+            },
+            "ResultPath": "$",
+            "Parameters": {
+              "Payload.$": "$.Items",
+              "FunctionName": "${lTransform}:$LATEST"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 6,
+                "BackoffRate": 2,
+                "JitterStrategy": "FULL"
+              }
+            ],
+            "End": true,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Send to SQS DLQ"
+              }
+            ]
+          },
+          "Send to SQS DLQ": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sqs:sendMessage",
+            "Parameters": {
+              "QueueUrl": "${lDlqUrl}",
+              "MessageBody.$": "$$.Execution.Input",
+              "MessageGroupId": "${lDeploymentInstance}",
+              "MessageAttributes": {
+                "SfnExecutionId": {
+                  "DataType": "String",
+                  "StringValue.$": "$$.Execution.Id"
+                }
               }
             },
-            "Records": {
-              "Type": "Map",
-              "ItemProcessor": {
-                "ProcessorConfig": {
-                  "Mode": "DISTRIBUTED",
-                  "ExecutionType": "STANDARD"
-                },
-                "StartAt": "Execute Lambda Transformation",
-                "States": {
-                  "Execute Lambda Transformation": {
-                    "Type": "Task",
-                    "Resource": "arn:aws:states:::lambda:invoke",
-                    "ResultSelector": {
-                      "run_output.$": "$.Payload"
-                    },
-                    "ResultPath": "$",
-                    "Parameters": {
-                      "Payload.$": "$.Items",
-                      "FunctionName": "${lTransform}:$LATEST"
-                    },
-                    "Retry": [
-                      {
-                        "ErrorEquals": [
-                          "Lambda.ServiceException",
-                          "Lambda.AWSLambdaException",
-                          "Lambda.SdkClientException",
-                          "Lambda.TooManyRequestsException"
-                        ],
-                        "IntervalSeconds": 2,
-                        "MaxAttempts": 6,
-                        "BackoffRate": 2,
-                        "JitterStrategy": "FULL"
-                      }
-                    ],
-                    "End": true
-                  }
-                }
-              },
-              "Next": "Post-update Catalog",
-              "Label": "Records",
-              "MaxConcurrency": 50,
-              "ToleratedFailurePercentage": 100,
-              "ItemBatcher": {
-                "MaxItemsPerBatch": 1
-              },
-              "InputPath": "$.Items"
-            },
-            "Post-update Catalog": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "ResultPath": null,
-              "Parameters": {
-                "Payload.$": "$",
-                "FunctionName": "${lPostMetadata}:$LATEST"
-              },
-              "Retry": [
-                {
-                  "ErrorEquals": [
-                    "Lambda.ServiceException",
-                    "Lambda.AWSLambdaException",
-                    "Lambda.SdkClientException",
-                    "Lambda.TooManyRequestsException"
-                  ],
-                  "IntervalSeconds": 2,
-                  "MaxAttempts": 6,
-                  "BackoffRate": 2
-                }
-              ],
-              "End": true
-            }
+            "ResultSelector": {},
+            "End": true
           }
         }
-      ],
-      "End": true,
-      "Catch": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "ResultPath": null,
-          "Next": "Error"
-        }
-      ]
+      },
+      "Next": "Post-map Status",
+      "Label": "Records",
+      "MaxConcurrency": 50,
+      "ToleratedFailurePercentage": 100,
+      "ItemBatcher": {
+        "MaxItemsPerBatch": 1
+      },
+      "InputPath": "$.Items"
     },
-    "Error": {
+    "Post-map Status": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "OutputPath": "$.Payload",
+      "ResultPath": null,
       "Parameters": {
-        "Payload.$": "$",
-        "FunctionName": "${lError}:$LATEST"
+        "Payload": {
+          "peh_id.$": "$$.Execution.Name",
+          "map_output.$": "$"
+        },
+        "FunctionName": "${lPostMetadata}:$LATEST"
       },
       "Retry": [
         {
@@ -120,10 +105,18 @@
           "BackoffRate": 2
         }
       ],
-      "Next": "Fail"
+      "Next": "Success",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "MapPartialFailureException"
+          ],
+          "Next": "Success"
+        }
+      ]
     },
-    "Fail": {
-      "Type": "Fail"
+    "Success": {
+      "Type": "Succeed"
     }
   }
 }

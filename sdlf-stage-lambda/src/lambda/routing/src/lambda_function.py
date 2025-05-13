@@ -108,7 +108,7 @@ def lambda_handler(event, context):
                 logger.info(f"Starting State Machine Execution (processing {len(records)} source events)")
             state_config = StateMachineConfiguration(instance=deployment_instance)
             StatesInterface().run_state_machine(
-                state_config.stage_state_machine, json.dumps(records, default=serializer)
+                state_config.stage_state_machine, json.dumps(records, default=serializer), execution_name=peh_id
             )
             pipeline_execution.update_pipeline_execution(
                 status=f"{deployment_instance} Transform Processing", component="Transform"
