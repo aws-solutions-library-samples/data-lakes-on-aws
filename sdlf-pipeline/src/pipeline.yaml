@@ -61,14 +61,14 @@ Conditions:
 Resources:
   rDeadLetterQueueRoutingStep:
     Type: AWS::SQS::Queue
-    Condition: HasSourceEvents
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
       QueueName: !Sub sdlf-${pDeploymentInstance}-dlq.fifo
       FifoQueue: True
-      MessageRetentionPeriod: 1209600
+      ContentBasedDeduplication: True
       VisibilityTimeout: 60
+      MessageRetentionPeriod: 1209600
       KmsMasterKeyId: !If [FetchFromDatasetSsm, !Sub "{{resolve:ssm:/sdlf/dataset/rKMSInfraKey/${pDatasetDeploymentInstance}}}", !Ref pInfraKmsKey]
 
   rDeadLetterQueueRoutingStepSsm:
@@ -221,3 +221,7 @@ Outputs:
   oPipelineReference:
     Description: CodePipeline reference this stack has been deployed with
     Value: !Ref pPipelineReference
+
+  oDlqUrl:
+    Description: Dead-letter queue URL
+    Value: !GetAtt rDeadLetterQueueRoutingStep.QueueUrl

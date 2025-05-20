@@ -10,20 +10,29 @@ from datalake_library.sdlf import (
 )
 
 logger = init_logger(__name__)
+s3_interface = S3Interface()
 s3_prefix = os.environ["S3_PREFIX"]
 deployment_instance = os.environ["DEPLOYMENT_INSTANCE"]
 storage_deployment_instance = os.environ["STORAGE_DEPLOYMENT_INSTANCE"]
 
 
-def transform_object(bucket, key):
-    s3_interface = S3Interface()
-    # IMPORTANT: Stage bucket where transformed data must be uploaded
-    stage_bucket = S3Configuration(instance=storage_deployment_instance).stage_bucket
+def pull_object_from_s3(bucket, key):
     # Download S3 object locally to /tmp directory
-    # The s3_helper.download_object method
-    # returns the local path where the file was saved
-    local_path = s3_interface.download_object(bucket, key)
+    # s3_interface.download_object returns the local path where the file was saved
+    return s3_interface.download_object(bucket, key)
 
+
+def push_object_to_s3(bucket, file_path):
+    # Uploading file to bucket at appropriate path
+    # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
+    s3_path = f"{s3_prefix}/{deployment_instance}/{PurePath(file_path).name}"
+    kms_key = KMSConfiguration(instance=storage_deployment_instance).data_kms_key
+    s3_interface.upload_object(file_path, bucket, s3_path, kms_key=kms_key)
+
+    return f"{bucket}{s3_path}"
+
+
+def transform_object(local_path):
     # Apply business business logic:
     # Below example is opening a JSON file and
     # extracting fields, then saving the file
@@ -50,14 +59,7 @@ def transform_object(bucket, key):
     with open(output_path, "w", encoding="utf-8") as write_file:
         json.dump(parse(json_data), write_file, ensure_ascii=False, indent=4)
 
-    # Uploading file to Stage bucket at appropriate path
-    # IMPORTANT: Build the output s3_path without the s3://stage-bucket/
-    s3_path = f"{s3_prefix}/{deployment_instance}/{PurePath(output_path).name}"
-    # IMPORTANT: Notice "stage_bucket" not "bucket"
-    kms_key = KMSConfiguration(instance=storage_deployment_instance).data_kms_key
-    s3_interface.upload_object(output_path, stage_bucket, s3_path, kms_key=kms_key)
-
-    return s3_path
+    return output_path
 
 
 def lambda_handler(event, context):
@@ -72,14 +74,13 @@ def lambda_handler(event, context):
     """
     try:
         # this default Lambda expects records to be S3 events
+        stage_bucket = S3Configuration(instance=storage_deployment_instance).stage_bucket
         for record in event:
             logger.info(f"Processing file: {record['object']['key']} in {record['bucket']['name']}")
-            try:
-                transform_object(record["bucket"]["name"], record["object"]["key"])
-                record["processed"] = True
-            except json.decoder.JSONDecodeError as e:
-                record["processed"] = False
-                record["error"] = repr(e)
+            local_path = pull_object_from_s3(record["bucket"]["name"], record["object"]["key"])
+            output_path = transform_object(local_path)
+            s3_uri = push_object_to_s3(stage_bucket, output_path)
+            logger.info(f"Result stored at {s3_uri}")
 
     except Exception as e:
         logger.error("Fatal error", exc_info=True)

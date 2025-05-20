@@ -60,7 +60,7 @@ Resources:
       Command:
         Name: glueetl
         PythonVersion: "3"
-        ScriptLocation: !Sub s3://${pArtifactsBucket}/artifacts/${pPipelineDeploymentInstance}-glue-job.py
+        ScriptLocation: !Sub s3://${pArtifactsBucket}/artifacts/legislators-glue-job.py
       DefaultArguments: !If
         - RunInVpc
         -
