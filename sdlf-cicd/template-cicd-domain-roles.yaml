@@ -38,6 +38,7 @@ Conditions:
   UseCustomBucketPrefix: !Not [!Equals [!Ref pCustomBucketPrefix, sdlf]]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
+  HasCustomIdentifier: !Not [!Equals [!Ref pCustomIdentifier, ""]]
 
 Resources:
   ######## OPTIONAL SDLF FEATURES #########
@@ -64,7 +65,7 @@ Resources:
     Properties:
       Name: /SDLF/CustomIdentifier
       Type: String
-      Value: !Ref pCustomIdentifier
+      Value: !If [HasCustomIdentifier, !Ref pCustomIdentifier, "FALSE"]
       Description: Add a custom identifier to foundational resource names
 
   rDevopsCrossaccountCodePipelineRole:

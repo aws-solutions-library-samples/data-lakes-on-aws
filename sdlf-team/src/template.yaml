@@ -108,6 +108,7 @@ Conditions:
   CicdRoleProvided: !Not [!Equals [!Ref pCicdRole, ""]]
   UseLegacyTeam: !Equals [!Ref pLegacyTeam, true]
   RunInVpc: !Equals [!Ref pEnableVpc, true]
+  UseCustomOctagonSuffix: !Not [!Equals [!Ref pCustomOctagonSuffix, "FALSE"]]
 
 Globals:
   Function:
@@ -814,7 +815,7 @@ Resources:
         Variables:
           TEAM_NAME: !Ref pTeamName
           ENVIRONMENT: !Ref pEnvironment
-          CUSTOM_OCTAGON_SUFFIX: !Ref pCustomOctagonSuffix
+          CUSTOM_OCTAGON_SUFFIX: !If [UseCustomOctagonSuffix, !Ref pCustomOctagonSuffix, ""]
       CodeUri: ./lambda/datasets-dynamodb/src
 
   rPermissionForDatasetsEventsToInvokeLambda:
@@ -933,7 +934,7 @@ Resources:
         Variables:
           TEAM_NAME: !Ref pTeamName
           ENVIRONMENT: !Ref pEnvironment
-          CUSTOM_OCTAGON_SUFFIX: !Ref pCustomOctagonSuffix
+          CUSTOM_OCTAGON_SUFFIX: !If [UseCustomOctagonSuffix, !Ref pCustomOctagonSuffix, ""]
       CodeUri: ./lambda/pipelines-dynamodb/src
 
   rPermissionForPipelinesEventsToInvokeLambda:
