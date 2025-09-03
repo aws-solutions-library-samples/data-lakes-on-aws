@@ -63,7 +63,7 @@ Resources:
                 Resource:
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/InfraKeyId:1}}"
                   - !Sub "{{resolve:ssm:/SDLF/KMS/${pTeamName}/DataKeyId:1}}"
-                  - !Sub "{{resolve:ssm:/SDLF2/KMS/KeyArn:1}}"
+                  - "{{resolve:ssm:/SDLF2/KMS/KeyArn:1}}"
 
   rGlueJob:
     Type: AWS::Glue::Job
@@ -102,3 +102,7 @@ Outputs:
     Value: !GetAtt rGlueRole.Arn
     Export:
       Name: !Sub ${AWS::StackName}-glue-role-arn
+
+  oPipelineDeploymentInstance:
+    Description: Pipeline deployment instance
+    Value: !Ref pPipelineDeploymentInstance

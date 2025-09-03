@@ -23,7 +23,6 @@ Parameters:
 
 Conditions:
   GitPlatformCodeCommit: !Equals [!Ref pGitPlatform, "CodeCommit"]
-  GitPlatformGitLab: !Equals [!Ref pGitPlatform, "GitLab"]
   GitPlatformGitHub: !Equals [!Ref pGitPlatform, "GitHub"]
 
 Resources:
@@ -42,18 +41,6 @@ Resources:
       RepositoryDescription: !Sub ${pDomain} ${pTeamName} main repository
       RepositoryName: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
       KmsKeyId: !Ref pKMSKey
-
-  rTeamMainGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
-    Condition: GitPlatformGitLab
-    Properties:
-      Name: !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
 
   rTeamMainGitHub:
     Type: GitHub::Repositories::Repository
@@ -78,5 +65,5 @@ Resources:
       Value: !If
         - GitPlatformCodeCommit
         - !GetAtt rTeamMainCodeCommit.Name
-        - !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName} # !GetAtt rTeamMainGitLab.Name
+        - !Sub ${pMainRepositoriesPrefix}${pDomain}-${pTeamName}
       Description: !Sub Name of the ${pDomain} ${pTeamName} main repository
