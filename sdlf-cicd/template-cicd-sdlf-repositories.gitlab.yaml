@@ -19,152 +19,185 @@ Conditions:
   EnableMonitoring: !Equals [!Ref pEnableMonitoring, true]
 
 Resources:
-  ######## GITLAB #########
-  # rSdlfGitLabGroup:
-  #   Type: GitLab::Groups::Group
-  #   Properties:
-  #     Name: SDLF
-  #     Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
-
-  rCicdGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+  ######## GITLAB CUSTOM RESOURCE LAMBDA #########
+  rGitLabRepositoryLambdaRole:
+    Type: AWS::IAM::Role
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}cicd
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SSMParameterAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/SDLF/GitLab/*"
+
+  rGitLabRepositoryLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub sdlf-gitlab-repository-manager-${pCustomIdentifier}
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt rGitLabRepositoryLambdaRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import ssl
+          import boto3
+          import cfnresponse
+          from urllib.request import HTTPError, Request, URLError, urlopen
+          
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          
+          ssm = boto3.client('ssm')
+          
+          def lambda_handler(event, context):
+              try:
+                  logger.info(f"Event: {json.dumps(event)}")
+                  
+                  request_type = event['RequestType']
+                  repository = event['ResourceProperties']['RepositoryName']
+                  
+                  if request_type in ['Create', 'Update']:
+                      # Get GitLab parameters
+                      gitlab_url = ssm.get_parameter(Name="/SDLF/GitLab/Url", WithDecryption=True)["Parameter"]["Value"]
+                      gitlab_accesstoken = ssm.get_parameter(Name="/SDLF/GitLab/AccessToken", WithDecryption=True)["Parameter"]["Value"]
+                      namespace_id = ssm.get_parameter(Name="/SDLF/GitLab/NamespaceId", WithDecryption=True)["Parameter"]["Value"]
+                      
+                      # Create GitLab repository
+                      url = f"{gitlab_url}api/v4/projects/"
+                      headers = {"Content-Type": "application/json", "PRIVATE-TOKEN": gitlab_accesstoken}
+                      data = {
+                          "name": repository,
+                          "description": repository,
+                          "path": repository,
+                          "namespace_id": namespace_id,
+                          "initialize_with_readme": "false",
+                      }
+                      json_data = json.dumps(data).encode("utf-8")
+                      req = Request(url, data=json_data, headers=headers, method="POST")
+                      unverified_context = ssl._create_unverified_context()
+                      
+                      try:
+                          with urlopen(req, context=unverified_context) as response:
+                              response_body = response.read().decode("utf-8")
+                              logger.info(f"GitLab API response: {response_body}")
+                              response_data = json.loads(response_body)
+                              physical_resource_id = str(response_data.get('id', repository))
+                      except HTTPError as e:
+                          if e.code == 400:
+                              logger.warning(f"Repository {repository} likely already exists")
+                              physical_resource_id = repository
+                          else:
+                              raise e
+                      except URLError as e:
+                          logger.error(f"URL error occurred: {e.reason}")
+                          raise e
+                  else:
+                      # Delete operation - GitLab repositories are typically not deleted automatically
+                      physical_resource_id = event.get('PhysicalResourceId', repository)
+                      logger.info(f"Delete operation for repository {repository} - no action taken")
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, physical_resource_id)
+                  
+              except Exception as e:
+                  logger.error(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, event.get('PhysicalResourceId', 'failed'))
+
+  ######## GITLAB REPOSITORIES #########
+  rCicdGitLab:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}cicd
 
   rFoundationsGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}foundations
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}foundations
 
   rTeamGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}team
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}team
 
   rPipelineGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}pipeline
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}pipeline
 
   rDatasetGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}dataset
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}dataset
 
   rStageAGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}stageA
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}stageA
 
   rStageLambdaGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}stage-lambda
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}stage-lambda
 
   rStageBGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}stageB
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}stageB
 
   rStageGlueGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}stage-glue
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}stage-glue
 
   rDatalakeLibraryGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}datalakeLibrary
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}datalakeLibrary
 
   rMainGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}main
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}main
 
   rMonitoringGitLab:
-    Type: GitLab::Projects::Project
-    Metadata:
-      cfn-lint:
-        config:
-          ignore_checks:
-          - E3001
+    Type: AWS::CloudFormation::CustomResource
     Condition: EnableMonitoring
     Properties:
-      Name: !Sub sdlf-${pCustomIdentifier}monitoring
-#      Path: "{{resolve:ssm:/SDLF/${pGitPlatform}/Group}}"
+      ServiceToken: !GetAtt rGitLabRepositoryLambda.Arn
+      RepositoryName: !Sub sdlf-${pCustomIdentifier}monitoring
 
   rCicdGitLabSsm:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /SDLF/GitLab/CicdGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}cicd # !GetAtt rCicdGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}cicd
       Description: Name of the Cicd repository
 
   rFoundationsGitLabSsm:
@@ -172,7 +205,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/FoundationsGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}foundations # !GetAtt rFoundationsGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}foundations
       Description: Name of the Foundations repository
 
   rTeamGitLabSsm:
@@ -180,7 +213,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/TeamGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}team # !GetAtt rTeamGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}team
       Description: Name of the Team repository
 
   rPipelineGitLabSsm:
@@ -188,7 +221,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/PipelineGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}pipeline # !GetAtt rPipelineGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}pipeline
       Description: Name of the Pipeline repository
 
   rDatasetGitLabSsm:
@@ -196,7 +229,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/DatasetGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}dataset # !GetAtt rDatasetGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}dataset
       Description: Name of the Dataset repository
 
   rStageAGitLabSsm:
@@ -204,7 +237,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/StageAGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}stageA # !GetAtt rStageAGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}stageA
       Description: Name of the StageA repository
 
   rStageLambdaGitLabSsm:
@@ -212,7 +245,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/StageLambdaGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}stage-lambda # !GetAtt rStageLambdaGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}stage-lambda
       Description: Name of the Stage-Lambda repository
 
   rStageBGitLabSsm:
@@ -220,7 +253,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/StageBGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}stageB # !GetAtt rStageBGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}stageB
       Description: Name of the StageB repository
 
   rStageGlueGitLabSsm:
@@ -228,7 +261,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/StageGlueGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}stage-glue # !GetAtt rStageGlueGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}stage-glue
       Description: Name of the Stage-Glue repository
 
   rDatalakeLibraryGitLabSsm:
@@ -236,7 +269,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/DatalakeLibraryGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}datalakeLibrary # !GetAtt rDatalakeLibraryGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}datalakeLibrary
       Description: Name of the DatalakeLibrary repository
 
   rMainGitLabSsm:
@@ -244,7 +277,7 @@ Resources:
     Properties:
       Name: /SDLF/GitLab/MainGitLab
       Type: String
-      Value: !Sub sdlf-${pCustomIdentifier}main # !GetAtt rMainGitLab.Name
+      Value: !Sub sdlf-${pCustomIdentifier}main
       Description: Name of the main repository
 
   rMonitoringGitLabSsm:
@@ -257,7 +290,6 @@ Resources:
       Description: Name of the monitoring repository
 
 Outputs:
-  # workaround {{resolve:ssm:}} not returning an array that can be used directly in VpcConfig blocks
   oKmsKey:
     Description: CICD KMS Key
     Value: !Ref pKMSKey
