@@ -8,6 +8,7 @@ from tempfile import mkdtemp
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
+from repository_manager import create_repositories
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -115,52 +116,6 @@ def delete_domain_team_role_stack(cloudformation, team):
         StackName=stack_name,
     )
     return (stack_name, "stack_delete_complete")
-
-
-def create_team_repository_cicd_stack(domain, team_name, template_body_url, cloudformation_role):
-    response = {}
-    cloudformation_waiter_type = None
-    stack_name = f"sdlf-cicd-teams-{domain}-{team_name}-repository"
-    stack_parameters = [
-        {
-            "ParameterKey": "pDomain",
-            "ParameterValue": domain,
-            "UsePreviousValue": False,
-        },
-        {
-            "ParameterKey": "pTeamName",
-            "ParameterValue": team_name,
-            "UsePreviousValue": False,
-        },
-    ]
-    stack_arguments = dict(
-        StackName=stack_name,
-        TemplateURL=template_body_url,
-        Parameters=stack_parameters,
-        Capabilities=[
-            "CAPABILITY_AUTO_EXPAND",
-        ],
-        RoleARN=cloudformation_role,
-        Tags=[
-            {"Key": "Framework", "Value": "sdlf"},
-        ],
-    )
-
-    try:
-        response = cloudformation.create_stack(**stack_arguments)
-        cloudformation_waiter_type = "stack_create_complete"
-    except cloudformation.exceptions.AlreadyExistsException:
-        try:
-            response = cloudformation.update_stack(**stack_arguments)
-            cloudformation_waiter_type = "stack_update_complete"
-        except ClientError as err:
-            if "No updates are to be performed" in err.response["Error"]["Message"]:
-                pass
-            else:
-                raise err
-
-    logger.info("RESPONSE: %s", response)
-    return (stack_name, cloudformation_waiter_type)
 
 
 def create_team_pipeline_cicd_stack(
@@ -467,51 +422,14 @@ def lambda_handler(event, context):
         ###### CREATE STACKS FOR TEAMS ######
         for domain, domain_details in domains.items():
             # create team repository if it hasn't been created already
-            cloudformation_waiters = {
-                "stack_create_complete": [],
-                "stack_update_complete": [],
-            }
-            for team in domain_details["teams"]:
-                stack_details = create_team_repository_cicd_stack(
-                    domain,
-                    team,
-                    template_cicd_team_repository_url,
-                    cloudformation_role,
-                )
-                if stack_details[1]:
-                    cloudformation_waiters[stack_details[1]].append(stack_details[0])
-            cloudformation_create_waiter = cloudformation.get_waiter("stack_create_complete")
-            cloudformation_update_waiter = cloudformation.get_waiter("stack_update_complete")
-            for stack in cloudformation_waiters["stack_create_complete"]:
-                cloudformation_create_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
-            for stack in cloudformation_waiters["stack_update_complete"]:
-                cloudformation_update_waiter.wait(StackName=stack, WaiterConfig={"Delay": 30, "MaxAttempts": 10})
-
-            if git_platform == "CodeCommit":
-                for team in domain_details["teams"]:
-                    repository_name = f"{main_repository_prefix}{domain}-{team}"
-                    env_branches = ["dev", "test"]
-                    for env_branch in env_branches:
-                        try:
-                            codecommit.create_branch(
-                                repositoryName=repository_name,
-                                branchName=env_branch,
-                                commitId=codecommit.get_branch(
-                                    repositoryName=repository_name,
-                                    branchName="main",
-                                )["branch"]["commitId"],
-                            )
-                            logger.info(
-                                "Branch %s created in repository %s",
-                                env_branch,
-                                repository_name,
-                            )
-                        except codecommit.exceptions.BranchNameExistsException:
-                            logger.info(
-                                "Branch %s already created in repository %s",
-                                env_branch,
-                                repository_name,
-                            )
+            create_repositories(
+                git_platform,
+                domain_details,
+                domain,
+                template_cicd_team_repository_url,
+                cloudformation_role,
+                main_repository_prefix,
+            )
 
             # and create a CICD stack per team that will be used to deploy team resources in the child account
             cloudformation_waiters = {

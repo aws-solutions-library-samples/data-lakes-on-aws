@@ -91,49 +91,14 @@ Rnabled by setting `pEnableLambdaLayerBuilder` to `true` when deploying `templat
 
 ### GitLab
 
-- Create a dedicated user on GitLab. Currently the user must be named: `sdlf`.
-- Create an access token with the `sdlf` user. The token name must be named `aws`. Permissions must be `api` and `write_repository`.
-- Create [CodeConnections](https://docs.aws.amazon.com/codepipeline/latest/userguide/connections-gitlab-managed.html) for the self-managed GitLab instance
+The creation of GitLab repositories will be performed through the GitLab API.
 
 Populate:
 
 - `/SDLF/GitLab/Url` :: secure-string :: GitLab URL **with** trailing `/`
 - `/SDLF/GitLab/AccessToken` :: secure-string :: User access token
+- `/SDLF/GitLab/NamespaceId` :: secure-string :: User/Enterprise namespace ID
 - `/SDLF/GitLab/CodeConnection` :: string :: CodeConnections ARN
-
-Create CloudFormation role:
-
-```
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "resources.cloudformation.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole",
-			"Condition": {
-				"StringEquals": {
-					"aws:SourceAccount": "111111111111"
-				}
-        }
-    ]
-}
-```
-
-Enable `GitLab::Projects::Project` third-party resource type in CloudFormation Registry.
-
-Add configuration (use of ssm-secure is mandatory):
-
-```
-{
-    "GitLabAccess": {
-        "AccessToken": "{{resolve:ssm-secure:/SDLF/GitLab/AccessToken:1}}",
-        "Url": "{{resolve:ssm-secure:/SDLF/GitLab/Url:1}}"
-    }
-}
-```
 
 ## Interface
 
