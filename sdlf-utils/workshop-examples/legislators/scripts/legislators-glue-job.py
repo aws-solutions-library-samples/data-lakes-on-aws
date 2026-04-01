@@ -48,7 +48,7 @@ history = Join.apply(
 
 persons.toDF().write.mode("overwrite").parquet("{}/persons/".format(destination))
 organizations.toDF().write.mode("overwrite").parquet("{}/organizations/".format(destination))
-memberships.toDF().write.mode("overwrite").parquet("{}//memberships/".format(destination))
+memberships.toDF().write.mode("overwrite").parquet("{}/memberships/".format(destination))
 history.toDF().write.mode("overwrite").parquet("{}/history/".format(destination), partitionBy=["org_name"])
 
 job.commit()
