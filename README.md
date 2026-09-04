@@ -1,3 +1,6 @@
+> [!NOTE]
+> This repository has been archived and is not maintained anymore. We recommend exploring [Modern Data Architecture Accelerator (MDAA)](https://github.com/aws/modern-data-architecture-accelerator) as an alternative solution.
+
 # Serverless Data Lake Framework (SDLF)
 
 ## Table of Contents
